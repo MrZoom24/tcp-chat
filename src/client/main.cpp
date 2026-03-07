@@ -31,8 +31,16 @@ int main() {
         close(client_fd);
         return 1;
     }
-
     std::cout << "Socket connection succeeded\n";
+
+    std::string username;
+    std::cout << "Enter your username: ";
+    std::getline(std::cin, username);
+    if (username.empty()) {
+        std::cout << "Username cannot be empty\n";
+        close(client_fd);
+        return 1;
+    }
 
     std::string msg;
     while (true) {
@@ -50,7 +58,8 @@ int main() {
             break;
         }
 
-        ssize_t bytes_sent = send(client_fd, msg.c_str(), msg.size(), 0);
+        std::string full_message = username + ": " + msg;
+        ssize_t bytes_sent = send(client_fd, full_message.c_str(), full_message.size(), 0);
         if (bytes_sent == -1) {
             std::cerr << "Send failed: " << strerror(errno) << "\n";
             close(client_fd);
@@ -59,16 +68,15 @@ int main() {
 
         char buffer[1024];
         ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-        if (bytes_received <= 0) {
-            close(client_fd);
+        if (bytes_received == 0) {
+            std::cout << "Client closed connection\n";
+            break;
+        }
 
-            if (bytes_received == 0) {
-                std::cout << "Server closed connection\n";
-                break;
-            } else {
-                std::cerr << "Receive failed: " << strerror(errno) << "\n";
-                return 1;
-            }
+        if (bytes_received < 0) {
+            std::cerr << "Receive failed: " << strerror(errno) << "\n";
+            close(client_fd);
+            return 1;
         }
 
         buffer[bytes_received] = '\0';

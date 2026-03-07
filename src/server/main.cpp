@@ -71,7 +71,7 @@ int main() {
         buffer[bytes_received] = '\0';
         std::cout << "Received string: " << buffer << "\n";
 
-        ssize_t bytes_sent = send(client_fd, buffer, strlen(buffer), 0);
+        ssize_t bytes_sent = send(client_fd, buffer, bytes_received, 0);
         if (bytes_sent == -1) {
             std::cerr << "Send failed: " << strerror(errno) << "\n";
             close(client_fd);
