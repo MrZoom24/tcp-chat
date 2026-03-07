@@ -30,6 +30,17 @@ int main() {
         return 1;
     } else {
         std::cout << "Socket connection succeeded\n";
-        close(client_fd);
     }
+
+    const char* msg = "Hello server";
+    ssize_t bytes_sent = send(client_fd, msg, strlen(msg), 0);
+    if (bytes_sent == -1) {
+        std::cerr << "Send failed: " << strerror(errno) << "\n";
+        close(client_fd);
+        return 1;
+    } else {
+        std::cout << bytes_sent << " bytes sent\n";
+    }
+
+    close(client_fd);
 }
