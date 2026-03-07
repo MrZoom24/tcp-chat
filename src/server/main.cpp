@@ -10,9 +10,9 @@ int main() {
     if (server_fd == -1) {
         std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
         return 1;
-    } else {
-        std::cout << "Socket creation succeeded\n";
     }
+
+    std::cout << "Socket creation succeeded\n";
 
     sockaddr_in server_addr {};
     server_addr.sin_family = AF_INET;
@@ -23,19 +23,19 @@ int main() {
         std::cerr << "Socket bind failed: " << strerror(errno) << "\n";
         close(server_fd);
         return 1;
-    } else {
-        std::cout << "Socket bind succeeded\n";
     }
+
+    std::cout << "Socket bind succeeded\n";
 
 
     if (listen(server_fd, 5) < 0) {
         std::cerr << "Socket listening failed: " << strerror(errno) << "\n";
         close(server_fd);
         return 1;
-    } else {
-        std::cout << "Socket listening succeeded\n";
-        std::cout << "Server listening on port " << ntohs(server_addr.sin_port) << "\n";
     }
+
+    std::cout << "Socket listening succeeded\n";
+    std::cout << "Server listening on port " << ntohs(server_addr.sin_port) << "\n";
 
     sockaddr_in client_addr {};
     socklen_t client_size = sizeof(client_addr);
@@ -45,9 +45,10 @@ int main() {
         std::cerr << "Accept failed: " << strerror(errno) << "\n";
         close(server_fd);
         return 1;
-    } else {
-        std::cout << "Client Connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
     }
+
+    std::cout << "Client Connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
+
 
     char buffer[1024];
 
@@ -58,9 +59,26 @@ int main() {
         std::cout << "Received string: " << buffer << "\n";
     } else if (bytes_received == 0) {
         std::cout << "Client closed connection\n";
+        close(client_fd);
+        close(server_fd);
+        return 0;
     } else {
         std::cerr << "Receive failed: " << strerror(errno) << "\n";
+        close(client_fd);
+        close(server_fd);
+        return 1;
     }
+
+    const char* reply = "Hello client";
+    ssize_t bytes_sent = send(client_fd, reply, strlen(reply), 0);
+    if (bytes_sent == -1) {
+        std::cerr << "Send failed: " << strerror(errno) << "\n";
+        close(client_fd);
+        close(server_fd);
+        return 1;
+    }
+
+    std::cout << bytes_sent << " bytes sent\n";
 
     close(client_fd);
     close(server_fd);
