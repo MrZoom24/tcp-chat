@@ -52,7 +52,6 @@ int main() {
 
 
     char buffer[1024];
-    const std::string reply = "Message received!";
 
     while (true) {
         ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
@@ -72,7 +71,7 @@ int main() {
         buffer[bytes_received] = '\0';
         std::cout << "Received string: " << buffer << "\n";
 
-        ssize_t bytes_sent = send(client_fd, reply.c_str(), reply.size(), 0);
+        ssize_t bytes_sent = send(client_fd, buffer, strlen(buffer), 0);
         if (bytes_sent == -1) {
             std::cerr << "Send failed: " << strerror(errno) << "\n";
             close(client_fd);

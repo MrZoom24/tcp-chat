@@ -47,8 +47,7 @@ int main() {
         }
 
         if (msg == "quit") {
-            close(client_fd);
-            return 0;
+            break;
         }
 
         ssize_t bytes_sent = send(client_fd, msg.c_str(), msg.size(), 0);
@@ -57,7 +56,6 @@ int main() {
             close(client_fd);
             return 1;
         }
-        std::cout << bytes_sent << " bytes sent\n";
 
         char buffer[1024];
         ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
@@ -73,7 +71,6 @@ int main() {
             }
         }
 
-        std::cout << bytes_received << " bytes received\n";
         buffer[bytes_received] = '\0';
         std::cout << "Server message: " << buffer << "\n";
     }
