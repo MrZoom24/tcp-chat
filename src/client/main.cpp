@@ -1,5 +1,6 @@
 #include <cstring>
 #include <iostream>
+#include <string>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -33,30 +34,48 @@ int main() {
 
     std::cout << "Socket connection succeeded\n";
 
-    const char* msg = "Hello server";
-    ssize_t bytes_sent = send(client_fd, msg, strlen(msg), 0);
-    if (bytes_sent == -1) {
-        std::cerr << "Send failed: " << strerror(errno) << "\n";
-        close(client_fd);
-        return 1;
-    }
+    std::string msg;
+    while (true) {
+        std::cout << "> " << std::flush;
+        if (!std::getline(std::cin, msg)) {
+            std::cout << "Input closed\n";
+            break;
+        }
 
-    std::cout << bytes_sent << " bytes sent\n";
+        if (msg.empty()) {
+            continue;
+        }
 
-    char buffer[1024];
+        if (msg == "quit") {
+            close(client_fd);
+            return 0;
+        }
 
-    ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_received > 0) {
+        ssize_t bytes_sent = send(client_fd, msg.c_str(), msg.size(), 0);
+        if (bytes_sent == -1) {
+            std::cerr << "Send failed: " << strerror(errno) << "\n";
+            close(client_fd);
+            return 1;
+        }
+        std::cout << bytes_sent << " bytes sent\n";
+
+        char buffer[1024];
+        ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_received <= 0) {
+            close(client_fd);
+
+            if (bytes_received == 0) {
+                std::cout << "Server closed connection\n";
+                break;
+            } else {
+                std::cerr << "Receive failed: " << strerror(errno) << "\n";
+                return 1;
+            }
+        }
+
         std::cout << bytes_received << " bytes received\n";
         buffer[bytes_received] = '\0';
-        std::cout << "Received string: " << buffer << "\n";
-    } else if (bytes_received == 0) {
-        std::cout << "Server closed connection\n";
-    } else {
-        std::cerr << "Receive failed: " << strerror(errno) << "\n";
-        close(client_fd);
-        return 1;
+        std::cout << "Server message: " << buffer << "\n";
     }
-
     close(client_fd);
 }

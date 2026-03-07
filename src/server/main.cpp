@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <iostream>
+#include <string>
 
 int main() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -51,34 +52,35 @@ int main() {
 
 
     char buffer[1024];
+    const std::string reply = "Message received!";
 
-    ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_received > 0) {
+    while (true) {
+        ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_received == 0) {
+            std::cout << "Client closed connection\n";
+            break;
+        }
+
+        if (bytes_received < 0) {
+            std::cerr << "Receive failed: " << strerror(errno) << "\n";
+            close(client_fd);
+            close(server_fd);
+            return 1;
+        }
+
         std::cout << bytes_received << " bytes received\n";
         buffer[bytes_received] = '\0';
         std::cout << "Received string: " << buffer << "\n";
-    } else if (bytes_received == 0) {
-        std::cout << "Client closed connection\n";
-        close(client_fd);
-        close(server_fd);
-        return 0;
-    } else {
-        std::cerr << "Receive failed: " << strerror(errno) << "\n";
-        close(client_fd);
-        close(server_fd);
-        return 1;
-    }
 
-    const char* reply = "Hello client";
-    ssize_t bytes_sent = send(client_fd, reply, strlen(reply), 0);
-    if (bytes_sent == -1) {
-        std::cerr << "Send failed: " << strerror(errno) << "\n";
-        close(client_fd);
-        close(server_fd);
-        return 1;
+        ssize_t bytes_sent = send(client_fd, reply.c_str(), reply.size(), 0);
+        if (bytes_sent == -1) {
+            std::cerr << "Send failed: " << strerror(errno) << "\n";
+            close(client_fd);
+            close(server_fd);
+            return 1;
+        }
+        std::cout << bytes_sent << " bytes sent\n";
     }
-
-    std::cout << bytes_sent << " bytes sent\n";
 
     close(client_fd);
     close(server_fd);
