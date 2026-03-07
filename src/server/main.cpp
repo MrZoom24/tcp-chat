@@ -47,7 +47,21 @@ int main() {
         return 1;
     } else {
         std::cout << "Client Connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
-        close(server_fd);
-        close(client_fd);
     }
+
+    char buffer[1024];
+
+    ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_received > 0) {
+        std::cout << bytes_received << " bytes received\n";
+        buffer[bytes_received] = '\0';
+        std::cout << "Received string: " << buffer << "\n";
+    } else if (bytes_received == 0) {
+        std::cout << "Client closed connection\n";
+    } else {
+        std::cerr << "Receive failed: " << strerror(errno) << "\n";
+    }
+
+    close(client_fd);
+    close(server_fd);
 }
