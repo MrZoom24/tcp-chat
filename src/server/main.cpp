@@ -6,6 +6,12 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <mutex>
+#include <vector>
+#include <algorithm>
+
+std::vector<int> clients;
+std::mutex clients_mutex;
 
 void handle_client(int client_fd) {
     std::cout << "[SERVER] Handler started for fd=" << client_fd << "\n";
@@ -14,7 +20,7 @@ void handle_client(int client_fd) {
     while (true) {
         ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
         if (bytes_received == 0) {
-            std::cout << "Client closed connection\n";
+            std::cout << "[SERVER fd=" << client_fd << "] Client closed connection\n";
             break;
         }
 
@@ -34,6 +40,11 @@ void handle_client(int client_fd) {
         std::cout << "[SERVER fd=" << client_fd << "] Sent " << bytes_sent << " bytes\n";
     }
 
+    {
+        std::lock_guard<std::mutex> lock(clients_mutex);
+        clients.erase(std::remove(clients.begin(), clients.end(), client_fd), clients.end());
+        std::cout << "Connected clients: " << clients.size() << std::endl;
+    }
     close(client_fd);
 }
 
@@ -78,6 +89,14 @@ int main() {
             std::cerr << "Accept failed: " << strerror(errno) << "\n";
             continue;
         }
+
+        {
+            std::lock_guard<std::mutex> lock(clients_mutex);
+            clients.push_back(client_fd);
+            std::cout << "Connected clients: " << clients.size() << std::endl;
+        }
+
+
         std::cout << "Client Connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
 
         std::thread client_thread(handle_client, client_fd);
