@@ -5,6 +5,37 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <thread>
+
+void handle_client(int client_fd) {
+    std::cout << "[SERVER] Handler started for fd=" << client_fd << "\n";
+    char buffer[1024];
+
+    while (true) {
+        ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_received == 0) {
+            std::cout << "Client closed connection\n";
+            break;
+        }
+
+        if (bytes_received < 0) {
+            std::cerr << "Receive failed: " << strerror(errno) << "\n";
+            break;
+        }
+        buffer[bytes_received] = '\0';
+        std::cout << "[SERVER fd=" << client_fd << "] Received: " << buffer << "\n";
+
+        std::cout << "[SERVER fd=" << client_fd << "] Echoing back...\n";
+        ssize_t bytes_sent = send(client_fd, buffer, bytes_received, 0);
+        if (bytes_sent == -1) {
+            std::cerr << "Send failed: " << strerror(errno) << "\n";
+            break;
+        }
+        std::cout << "[SERVER fd=" << client_fd << "] Sent " << bytes_sent << " bytes\n";
+    }
+
+    close(client_fd);
+}
 
 int main() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -38,49 +69,20 @@ int main() {
     std::cout << "Socket listening succeeded\n";
     std::cout << "Server listening on port " << ntohs(server_addr.sin_port) << "\n";
 
-    sockaddr_in client_addr {};
-    socklen_t client_size = sizeof(client_addr);
-
-    int client_fd = accept(server_fd, (sockaddr*)&client_addr, &client_size);
-    if (client_fd == -1) {
-        std::cerr << "Accept failed: " << strerror(errno) << "\n";
-        close(server_fd);
-        return 1;
-    }
-
-    std::cout << "Client Connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
-
-
-    char buffer[1024];
-
     while (true) {
-        ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-        if (bytes_received == 0) {
-            std::cout << "Client closed connection\n";
-            break;
-        }
+        sockaddr_in client_addr {};
+        socklen_t client_size = sizeof(client_addr);
 
-        if (bytes_received < 0) {
-            std::cerr << "Receive failed: " << strerror(errno) << "\n";
-            close(client_fd);
-            close(server_fd);
-            return 1;
+        int client_fd = accept(server_fd, (sockaddr*)&client_addr, &client_size);
+        if (client_fd == -1) {
+            std::cerr << "Accept failed: " << strerror(errno) << "\n";
+            continue;
         }
+        std::cout << "Client Connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
 
-        std::cout << bytes_received << " bytes received\n";
-        buffer[bytes_received] = '\0';
-        std::cout << "Received string: " << buffer << "\n";
-
-        ssize_t bytes_sent = send(client_fd, buffer, bytes_received, 0);
-        if (bytes_sent == -1) {
-            std::cerr << "Send failed: " << strerror(errno) << "\n";
-            close(client_fd);
-            close(server_fd);
-            return 1;
-        }
-        std::cout << bytes_sent << " bytes sent\n";
+        std::thread client_thread(handle_client, client_fd);
+        client_thread.detach();
     }
 
-    close(client_fd);
     close(server_fd);
 }

@@ -59,14 +59,17 @@ int main() {
         }
 
         std::string full_message = username + ": " + msg + "\n";
+        std::cout << "[CLIENT] About to send: " << full_message;
         ssize_t bytes_sent = send(client_fd, full_message.c_str(), full_message.size(), 0);
         if (bytes_sent == -1) {
-            std::cerr << "Send failed: " << strerror(errno) << "\n";
+            std::cerr << "[CLIENT] Send failed: " << strerror(errno) << "\n";
             close(client_fd);
             return 1;
         }
+        std::cout << "[CLIENT] Sent " << bytes_sent << " bytes\n";
 
         char buffer[1024];
+        std::cout << "[CLIENT] Waiting for server reply...\n";
         ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
         if (bytes_received == 0) {
             std::cout << "Server closed connection\n";
