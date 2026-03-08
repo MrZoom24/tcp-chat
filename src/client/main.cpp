@@ -58,7 +58,7 @@ int main() {
             break;
         }
 
-        std::string full_message = username + ": " + msg;
+        std::string full_message = username + ": " + msg + "\n";
         ssize_t bytes_sent = send(client_fd, full_message.c_str(), full_message.size(), 0);
         if (bytes_sent == -1) {
             std::cerr << "Send failed: " << strerror(errno) << "\n";
@@ -69,7 +69,7 @@ int main() {
         char buffer[1024];
         ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
         if (bytes_received == 0) {
-            std::cout << "Client closed connection\n";
+            std::cout << "Server closed connection\n";
             break;
         }
 
