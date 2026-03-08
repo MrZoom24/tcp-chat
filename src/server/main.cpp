@@ -31,13 +31,22 @@ void handle_client(int client_fd) {
         buffer[bytes_received] = '\0';
         std::cout << "[SERVER fd=" << client_fd << "] Received: " << buffer << "\n";
 
-        std::cout << "[SERVER fd=" << client_fd << "] Echoing back...\n";
-        ssize_t bytes_sent = send(client_fd, buffer, bytes_received, 0);
-        if (bytes_sent == -1) {
-            std::cerr << "Send failed: " << strerror(errno) << "\n";
-            break;
+        std::cout << "[SERVER fd=" << client_fd << "] Distributing Message...\n";
+        {
+            std::lock_guard<std::mutex> lock(clients_mutex);
+
+            for (int client : clients) {
+                if (client != client_fd) {
+                    ssize_t bytes_sent = send(client, buffer, bytes_received, 0);
+                    if (bytes_sent == -1) {
+                        std::cout << "[SERVER fd=" << client << "] Message failed to send\n";
+                        continue;
+                    }
+                    std::cout << "[SERVER fd=" << client << "] Sent " << bytes_sent << " bytes\n";
+                }
+            }
         }
-        std::cout << "[SERVER fd=" << client_fd << "] Sent " << bytes_sent << " bytes\n";
+
     }
 
     {
