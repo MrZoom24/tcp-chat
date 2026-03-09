@@ -14,7 +14,6 @@ std::vector<int> clients;
 std::mutex clients_mutex;
 
 void handle_client(int client_fd) {
-    std::cout << "[SERVER] Handler started for fd=" << client_fd << "\n";
     char buffer[1024];
 
     while (true) {
@@ -31,7 +30,6 @@ void handle_client(int client_fd) {
         buffer[bytes_received] = '\0';
         std::cout << "[SERVER fd=" << client_fd << "] Received: " << buffer << "\n";
 
-        std::cout << "[SERVER fd=" << client_fd << "] Distributing Message...\n";
         {
             std::lock_guard<std::mutex> lock(clients_mutex);
 
@@ -42,7 +40,6 @@ void handle_client(int client_fd) {
                         std::cout << "[SERVER fd=" << client << "] Message failed to send\n";
                         continue;
                     }
-                    std::cout << "[SERVER fd=" << client << "] Sent " << bytes_sent << " bytes\n";
                 }
             }
         }
@@ -64,8 +61,6 @@ int main() {
         return 1;
     }
 
-    std::cout << "Socket creation succeeded\n";
-
     sockaddr_in server_addr {};
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(54000);
@@ -77,8 +72,6 @@ int main() {
         return 1;
     }
 
-    std::cout << "Socket bind succeeded\n";
-
 
     if (listen(server_fd, 5) < 0) {
         std::cerr << "Socket listening failed: " << strerror(errno) << "\n";
@@ -86,7 +79,6 @@ int main() {
         return 1;
     }
 
-    std::cout << "Socket listening succeeded\n";
     std::cout << "Server listening on port " << ntohs(server_addr.sin_port) << "\n";
 
     while (true) {
@@ -106,7 +98,7 @@ int main() {
         }
 
 
-        std::cout << "Client Connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
+        std::cout << "Client connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
 
         std::thread client_thread(handle_client, client_fd);
         client_thread.detach();

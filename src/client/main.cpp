@@ -37,7 +37,6 @@ int main() {
         std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
         return 1;
     }
-    std::cout << "Socket creation succeeded\n";
 
     sockaddr_in server_addr {};
     server_addr.sin_family = AF_INET;
@@ -52,7 +51,6 @@ int main() {
         close(client_fd);
         return 1;
     }
-    std::cout << "Socket connection succeeded\n";
 
     std::string username;
     std::cout << "Enter your username: ";
@@ -62,6 +60,8 @@ int main() {
         close(client_fd);
         return 1;
     }
+
+    std::cout << "Connected to chat server.\n";
 
     std::thread receive_thread(receive_messages, client_fd, std::ref(running));
 
@@ -95,7 +95,6 @@ int main() {
             close(client_fd);
             return 1;
         }
-        std::cout << "[CLIENT] Sent " << bytes_sent << " bytes\n";
     }
 
     receive_thread.join();
