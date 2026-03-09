@@ -1,20 +1,42 @@
+#include <atomic>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+void receive_messages(int client_fd, std::atomic<bool>& running) {
+    while (running) {
+        char buffer[1024];
+        ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_received == 0) {
+            std::cout << "[CLIENT] Server closed connection.\n";
+            running = false;
+            break;
+        }
+
+        if (bytes_received < 0) {
+            std::cerr << "[CLIENT] Error: " << strerror(errno) << "\n";
+            running = false;
+            break;
+        }
+
+        buffer[bytes_received] = '\0';
+        std::cout << buffer << std::flush;
+    }
+}
 
 int main() {
+    std::atomic<bool> running = true;
+
     int client_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (client_fd == -1) {
         std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
         return 1;
     }
-
-
     std::cout << "Socket creation succeeded\n";
 
     sockaddr_in server_addr {};
@@ -24,7 +46,6 @@ int main() {
         close(client_fd);
         return 1;
     }
-
 
     if (connect(client_fd, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         std::cerr << "Socket connection failed: " << strerror(errno) << "\n";
@@ -42,11 +63,15 @@ int main() {
         return 1;
     }
 
+    std::thread receive_thread(receive_messages, client_fd, std::ref(running));
+
     std::string msg;
-    while (true) {
+    while (running) {
         std::cout << "> " << std::flush;
         if (!std::getline(std::cin, msg)) {
             std::cout << "Input closed\n";
+            running = false;
+            shutdown(client_fd, SHUT_RDWR);
             break;
         }
 
@@ -55,35 +80,24 @@ int main() {
         }
 
         if (msg == "quit") {
+            running = false;
+            shutdown(client_fd, SHUT_RDWR);
             break;
         }
 
         std::string full_message = username + ": " + msg + "\n";
-        std::cout << "[CLIENT] About to send: " << full_message;
         ssize_t bytes_sent = send(client_fd, full_message.c_str(), full_message.size(), 0);
         if (bytes_sent == -1) {
             std::cerr << "[CLIENT] Send failed: " << strerror(errno) << "\n";
+            running = false;
+            shutdown(client_fd, SHUT_RDWR);
+            receive_thread.join();
             close(client_fd);
             return 1;
         }
         std::cout << "[CLIENT] Sent " << bytes_sent << " bytes\n";
-
-        char buffer[1024];
-        std::cout << "[CLIENT] Waiting for server reply...\n";
-        ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-        if (bytes_received == 0) {
-            std::cout << "Server closed connection\n";
-            break;
-        }
-
-        if (bytes_received < 0) {
-            std::cerr << "Receive failed: " << strerror(errno) << "\n";
-            close(client_fd);
-            return 1;
-        }
-
-        buffer[bytes_received] = '\0';
-        std::cout << "Server message: " << buffer << "\n";
     }
+
+    receive_thread.join();
     close(client_fd);
 }
