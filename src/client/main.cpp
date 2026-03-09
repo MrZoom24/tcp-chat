@@ -8,6 +8,43 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+std::string prompt_username() {
+
+    std::cout << "Enter your username: ";
+    std::string username;
+    std::getline(std::cin, username);
+    while (username.empty()) {
+        std::cout << "Username can't be empty. Enter new username: ";
+        std::getline(std::cin, username);
+    }
+
+    return username;
+}
+
+int connect_to_server() {
+    int client_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_fd == -1) {
+        std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
+        return -1;
+    }
+
+    sockaddr_in server_addr {};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(54000);
+    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+        close(client_fd);
+        return -1;
+    }
+
+    if (connect(client_fd, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        std::cerr << "Socket connection failed: " << strerror(errno) << "\n";
+        close(client_fd);
+        return -1;
+    }
+
+    return client_fd;
+}
+
 void receive_messages(int client_fd, std::atomic<bool>& running) {
     while (running) {
         char buffer[1024];
@@ -32,35 +69,12 @@ void receive_messages(int client_fd, std::atomic<bool>& running) {
 int main() {
     std::atomic<bool> running = true;
 
-    int client_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int client_fd = connect_to_server();
     if (client_fd == -1) {
-        std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
         return 1;
     }
 
-    sockaddr_in server_addr {};
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(54000);
-    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
-        close(client_fd);
-        return 1;
-    }
-
-    if (connect(client_fd, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        std::cerr << "Socket connection failed: " << strerror(errno) << "\n";
-        close(client_fd);
-        return 1;
-    }
-
-    std::string username;
-    std::cout << "Enter your username: ";
-    std::getline(std::cin, username);
-    if (username.empty()) {
-        std::cout << "Username cannot be empty\n";
-        close(client_fd);
-        return 1;
-    }
-
+    std::string username = prompt_username();
     std::cout << "Connected to chat server.\n";
 
     std::thread receive_thread(receive_messages, client_fd, std::ref(running));
