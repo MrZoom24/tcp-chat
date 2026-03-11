@@ -13,6 +13,46 @@
 std::vector<int> clients;
 std::mutex clients_mutex;
 
+int create_server_socket() {
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == -1) {
+        std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
+        return -1;
+    }
+
+    sockaddr_in server_addr {};
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(54000);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(server_fd, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        std::cerr << "Socket bind failed: " << strerror(errno) << "\n";
+        close(server_fd);
+        return -1;
+    }
+
+    if (listen(server_fd, 5) < 0) {
+        std::cerr << "Socket listening failed: " << strerror(errno) << "\n";
+        close(server_fd);
+        return -1;
+    }
+
+    std::cout << "Server listening on port " << ntohs(server_addr.sin_port) << "\n";
+    return server_fd;
+}
+
+void add_client(int client_fd) {
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    clients.push_back(client_fd);
+    std::cout << "Connected clients: " << clients.size() << std::endl;
+}
+
+void remove_client(int client_fd) {
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    clients.erase(std::remove(clients.begin(), clients.end(), client_fd), clients.end());
+    std::cout << "Connected clients: " << clients.size() << std::endl;
+}
+
 void handle_client(int client_fd) {
     char buffer[1024];
 
@@ -43,43 +83,17 @@ void handle_client(int client_fd) {
                 }
             }
         }
-
     }
 
-    {
-        std::lock_guard<std::mutex> lock(clients_mutex);
-        clients.erase(std::remove(clients.begin(), clients.end(), client_fd), clients.end());
-        std::cout << "Connected clients: " << clients.size() << std::endl;
-    }
+    remove_client(client_fd);
     close(client_fd);
 }
 
 int main() {
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int server_fd = create_server_socket();
     if (server_fd == -1) {
-        std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
         return 1;
     }
-
-    sockaddr_in server_addr {};
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(54000);
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(server_fd, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        std::cerr << "Socket bind failed: " << strerror(errno) << "\n";
-        close(server_fd);
-        return 1;
-    }
-
-
-    if (listen(server_fd, 5) < 0) {
-        std::cerr << "Socket listening failed: " << strerror(errno) << "\n";
-        close(server_fd);
-        return 1;
-    }
-
-    std::cout << "Server listening on port " << ntohs(server_addr.sin_port) << "\n";
 
     while (true) {
         sockaddr_in client_addr {};
@@ -91,12 +105,7 @@ int main() {
             continue;
         }
 
-        {
-            std::lock_guard<std::mutex> lock(clients_mutex);
-            clients.push_back(client_fd);
-            std::cout << "Connected clients: " << clients.size() << std::endl;
-        }
-
+        add_client(client_fd);
 
         std::cout << "Client connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
 
