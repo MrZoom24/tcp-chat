@@ -53,6 +53,18 @@ void remove_client(int client_fd) {
     std::cout << "Connected clients: " << clients.size() << std::endl;
 }
 
+void broadcast_message(const char* buffer, ssize_t message_size, int sender_fd) {
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    for (int client : clients) {
+        if (client != sender_fd) {
+            ssize_t bytes_sent = send(client, buffer, message_size, 0);
+            if (bytes_sent == -1) {
+                std::cerr << "[SERVER fd=" << client << "] Message failed to send" << strerror(errno) << "\n";
+            }
+        }
+    }
+}
+
 void handle_client(int client_fd) {
     char buffer[1024];
 
@@ -70,19 +82,7 @@ void handle_client(int client_fd) {
         buffer[bytes_received] = '\0';
         std::cout << "[SERVER fd=" << client_fd << "] Received: " << buffer << "\n";
 
-        {
-            std::lock_guard<std::mutex> lock(clients_mutex);
-
-            for (int client : clients) {
-                if (client != client_fd) {
-                    ssize_t bytes_sent = send(client, buffer, bytes_received, 0);
-                    if (bytes_sent == -1) {
-                        std::cout << "[SERVER fd=" << client << "] Message failed to send\n";
-                        continue;
-                    }
-                }
-            }
-        }
+        broadcast_message(buffer, bytes_received, client_fd);
     }
 
     remove_client(client_fd);
@@ -105,9 +105,8 @@ int main() {
             continue;
         }
 
-        add_client(client_fd);
-
         std::cout << "Client connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
+        add_client(client_fd);
 
         std::thread client_thread(handle_client, client_fd);
         client_thread.detach();
