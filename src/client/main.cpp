@@ -21,7 +21,7 @@ std::string prompt_username() {
     return username;
 }
 
-int connect_to_server() {
+int connect_to_server(const std::string& host, int port) {
     int client_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (client_fd == -1) {
         std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
@@ -30,8 +30,8 @@ int connect_to_server() {
 
     sockaddr_in server_addr {};
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(54000);
-    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+    server_addr.sin_port = htons(port);
+    if (inet_pton(AF_INET, host.c_str(), &server_addr.sin_addr) <= 0) {
         close(client_fd);
         return -1;
     }
@@ -66,10 +66,21 @@ void receive_messages(int client_fd, std::atomic<bool>& running) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    std::string host = "127.0.0.1";
+    int port = 54000;
+
+    if (argc >= 2) {
+        host = argv[1];
+    }
+
+    if (argc >= 3) {
+        port = std::stoi(argv[2]);
+    }
+
     std::atomic<bool> running = true;
 
-    int client_fd = connect_to_server();
+    int client_fd = connect_to_server(host, port);
     if (client_fd == -1) {
         return 1;
     }
@@ -82,7 +93,7 @@ int main() {
         close(client_fd);
         return 1;
     }
-    std::cout << "Connected to chat server.\n";
+    std::cout << "Connected to chat server at " << host << ":" << port << ".\n";
 
     std::thread receive_thread(receive_messages, client_fd, std::ref(running));
 
