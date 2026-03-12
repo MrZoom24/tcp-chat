@@ -18,7 +18,7 @@ struct ClientInfo {
 std::vector<ClientInfo> clients;
 std::mutex clients_mutex;
 
-int create_server_socket() {
+int create_server_socket(int port) {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
         std::cerr << "Socket creation failed: " << strerror(errno) << "\n";
@@ -27,7 +27,7 @@ int create_server_socket() {
 
     sockaddr_in server_addr {};
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(54000);
+    server_addr.sin_port = htons(port);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(server_fd, (sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
@@ -99,8 +99,14 @@ void handle_client(int client_fd, std::string username) {
     close(client_fd);
 }
 
-int main() {
-    int server_fd = create_server_socket();
+int main(int argc, char* argv[]) {
+    int port = 54000;
+
+    if (argc >= 2) {
+        port = std::stoi(argv[1]);
+    }
+
+    int server_fd = create_server_socket(port);
     if (server_fd == -1) {
         return 1;
     }
