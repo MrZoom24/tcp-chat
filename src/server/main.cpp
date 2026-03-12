@@ -72,7 +72,7 @@ void broadcast_message(const char* buffer, ssize_t message_size, int sender_fd) 
     }
 }
 
-void handle_client(int client_fd) {
+void handle_client(int client_fd, std::string username) {
     char buffer[1024];
 
     while (true) {
@@ -91,6 +91,9 @@ void handle_client(int client_fd) {
 
         broadcast_message(buffer, bytes_received, client_fd);
     }
+
+    std::string leave_message = username + " left the chat\n";
+    broadcast_message(leave_message.c_str(), leave_message.size(), client_fd);
 
     remove_client(client_fd);
     close(client_fd);
@@ -151,7 +154,10 @@ int main() {
         std::cout << "Client \"" << username << "\" connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
         add_client(client_fd, username);
 
-        std::thread client_thread(handle_client, client_fd);
+        std::string join_message = username + " joined the chat\n";
+        broadcast_message(join_message.c_str(), join_message.size(), client_fd);
+
+        std::thread client_thread(handle_client, client_fd, username);
         client_thread.detach();
     }
 
