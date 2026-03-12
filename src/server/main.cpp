@@ -10,7 +10,12 @@
 #include <vector>
 #include <algorithm>
 
-std::vector<int> clients;
+struct ClientInfo {
+    int fd;
+    std::string username;
+};
+
+std::vector<ClientInfo> clients;
 std::mutex clients_mutex;
 
 int create_server_socket() {
@@ -41,25 +46,27 @@ int create_server_socket() {
     return server_fd;
 }
 
-void add_client(int client_fd) {
+void add_client(int client_fd, const std::string& username) {
     std::lock_guard<std::mutex> lock(clients_mutex);
-    clients.push_back(client_fd);
+    clients.push_back({client_fd, username});
     std::cout << "Connected clients: " << clients.size() << std::endl;
 }
 
 void remove_client(int client_fd) {
     std::lock_guard<std::mutex> lock(clients_mutex);
-    clients.erase(std::remove(clients.begin(), clients.end(), client_fd), clients.end());
+    clients.erase(std::remove_if(clients.begin(), clients.end(), [client_fd](const ClientInfo& client){
+        return client.fd == client_fd;
+    }), clients.end());
     std::cout << "Connected clients: " << clients.size() << std::endl;
 }
 
 void broadcast_message(const char* buffer, ssize_t message_size, int sender_fd) {
     std::lock_guard<std::mutex> lock(clients_mutex);
-    for (int client : clients) {
-        if (client != sender_fd) {
-            ssize_t bytes_sent = send(client, buffer, message_size, 0);
+    for (const auto& client : clients) {
+        if (client.fd != sender_fd) {
+            ssize_t bytes_sent = send(client.fd, buffer, message_size, 0);
             if (bytes_sent == -1) {
-                std::cerr << "[SERVER fd=" << client << "] Message failed to send" << strerror(errno) << "\n";
+                std::cerr << "[SERVER fd=" << client.fd << "] Message failed to send: " << strerror(errno) << "\n";
             }
         }
     }
@@ -105,8 +112,44 @@ int main() {
             continue;
         }
 
-        std::cout << "Client connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
-        add_client(client_fd);
+        char buffer[1024];
+        ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_received == 0) {
+            std::cerr << "Client disconnected before sending username\n";
+            close(client_fd);
+            continue;
+        }
+
+        if (bytes_received < 0) {
+            std::cerr << "Receive failed: " << strerror(errno) << "\n";
+            close(client_fd);
+            continue;
+        }
+
+        buffer[bytes_received] = '\0';
+        std::string intro = buffer;
+
+        const std::string prefix = "/username ";
+        if (intro.rfind(prefix, 0) != 0) {
+            std::cout << "Invalid first message\n";
+            close(client_fd);
+            continue;
+        }
+
+        std::string username = intro.substr(prefix.size());
+
+        if (!username.empty() && username.back() == '\n') {
+            username.pop_back();
+        }
+
+        if (username.empty()) {
+            std::cerr << "Empty username received\n";
+            close(client_fd);
+            continue;
+        }
+
+        std::cout << "Client \"" << username << "\" connected from: " << inet_ntoa(client_addr.sin_addr) << "\n";
+        add_client(client_fd, username);
 
         std::thread client_thread(handle_client, client_fd);
         client_thread.detach();

@@ -75,6 +75,13 @@ int main() {
     }
 
     std::string username = prompt_username();
+    std::string intro = "/username " + username + "\n";
+    ssize_t intro_sent = send(client_fd, intro.c_str(), intro.size(), 0);
+    if (intro_sent == -1) {
+        std::cerr << "[CLIENT] Failed to send username: " << strerror(errno) << "\n";
+        close(client_fd);
+        return 1;
+    }
     std::cout << "Connected to chat server.\n";
 
     std::thread receive_thread(receive_messages, client_fd, std::ref(running));
